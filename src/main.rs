@@ -1,5 +1,6 @@
 mod reader;
 
+use std::io::Read;
 use reader::FsgReader;
 use std::env;
 use std::fs::File;
@@ -39,4 +40,12 @@ fn main() {
     }
 
     let mut reader = open(path);
+
+    let mut header = [0; 16];
+    reader.read_exact(&mut header).unwrap();
+
+    if header != "FSG-FILE-SYSTEM\x00".as_bytes() {
+        eprintln!("Invalid file header, is this actually an FSG image?");
+        process::exit(1); 
+    }
 }
