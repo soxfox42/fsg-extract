@@ -1,9 +1,9 @@
 mod reader;
 
-use std::io::Read;
 use reader::FsgReader;
 use std::env;
 use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::process;
 
@@ -46,6 +46,8 @@ fn main() {
 
     if header != "FSG-FILE-SYSTEM\x00".as_bytes() {
         eprintln!("Invalid file header, is this actually an FSG image?");
-        process::exit(1); 
+        process::exit(1);
     }
+
+    reader.seek(SeekFrom::Current(8)).unwrap();
 }
