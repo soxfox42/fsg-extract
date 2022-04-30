@@ -1,9 +1,10 @@
 mod reader;
 
-use std::io::Read;
+use byteorder::{BigEndian, ReadBytesExt};
 use reader::FsgReader;
 use std::env;
 use std::fs::File;
+use std::io::Read;
 use std::path::Path;
 use std::process;
 
@@ -46,6 +47,26 @@ fn main() {
 
     if header != "FSG-FILE-SYSTEM\x00".as_bytes() {
         eprintln!("Invalid file header, is this actually an FSG image?");
-        process::exit(1); 
+        process::exit(1);
     }
+
+    reader.read_u32::<BigEndian>().unwrap();
+    reader.read_u32::<BigEndian>().unwrap();
+    
+    let num_sectors = reader.read_u32::<BigEndian>().unwrap();
+    println!("Num sectors: {}", num_sectors);
+    
+    reader.read_u32::<BigEndian>().unwrap();
+    
+    let base_offset = reader.read_u32::<BigEndian>().unwrap();
+    println!("Base offset: {}", base_offset);
+
+    reader.read_u32::<BigEndian>().unwrap();
+    reader.read_u32::<BigEndian>().unwrap();
+    
+    let num_files = reader.read_u32::<BigEndian>().unwrap();
+    println!("Number of files: {}", num_files);
+    
+    reader.read_u32::<BigEndian>().unwrap();
+    reader.read_u32::<BigEndian>().unwrap();
 }
