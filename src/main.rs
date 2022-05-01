@@ -47,16 +47,21 @@ fn main() {
 
     reader.read_u32::<BigEndian>().unwrap(); // Unknown
     reader.read_u32::<BigEndian>().unwrap(); // Header Length
+
     let num_sectors = reader.read_u32::<BigEndian>().unwrap();
     println!("Num sectors: {}", num_sectors);
+
     reader.read_u32::<BigEndian>().unwrap(); // Sector Map Offset
+
     let base_offset = reader.read_u32::<BigEndian>().unwrap();
     println!("Base offset: {}", base_offset);
 
     reader.read_u32::<BigEndian>().unwrap(); // Unknown
     reader.read_u32::<BigEndian>().unwrap(); // Unknown
+
     let num_files = reader.read_u32::<BigEndian>().unwrap();
     println!("Number of files: {}", num_files);
+
     reader.read_u32::<BigEndian>().unwrap(); // Unknown
     reader.read_u32::<BigEndian>().unwrap(); // Checksum
 }
