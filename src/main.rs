@@ -16,7 +16,7 @@ fn open(path: String) -> impl FileConcatRead {
 
     if path.extension().map(|s| s == "part0").unwrap_or(false) {
         let stem = path.file_stem().unwrap();
-        for i in 1u8.. {
+        for i in 1.. {
             let part_path = format!("{}.part{}", stem.to_str().unwrap(), i);
             if !Path::new(&part_path).is_file() {
                 break;
