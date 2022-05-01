@@ -2,10 +2,17 @@ mod reader;
 
 use byteorder::{BigEndian, ReadBytesExt};
 use reader::PartReader;
+use std::collections::HashMap;
 use std::env;
-use std::io::Read;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::process;
+
+#[derive(Debug)]
+struct FileNode {
+    offset: u32,
+    size: u32,
+}
 
 fn open(path: String) -> PartReader {
     let mut paths = vec![path.clone()];
@@ -63,4 +70,24 @@ fn main() {
 
     reader.read_u32::<BigEndian>().unwrap(); // Unknown
     reader.read_u32::<BigEndian>().unwrap(); // Checksum
+
+    let mut table_offsets = HashMap::new();
+    for _ in 0..num_files {
+        let file_hash = reader.read_u32::<BigEndian>().unwrap();
+        reader.read_u8().unwrap();
+        let table_offset = reader.read_u24::<BigEndian>().unwrap();
+        table_offsets.insert(file_hash, table_offset);
+    }
+
+    let mut file_nodes = HashMap::new();
+    for (file_hash, table_offset) in table_offsets {
+        reader.seek(SeekFrom::Start(table_offset as u64)).unwrap();
+        let offset = reader.read_u32::<BigEndian>().unwrap();
+        let offset = base_offset + (offset << 10);
+        let size = reader.read_u32::<BigEndian>().unwrap();
+        file_nodes.insert(file_hash, FileNode {offset, size});
+    }
+
+    let (hash, node) = file_nodes.iter().next().unwrap();
+    println!("0x{:08x}: {:?}", hash, node);
 }
