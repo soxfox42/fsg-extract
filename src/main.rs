@@ -1,11 +1,13 @@
+mod reader;
+
 use byteorder::{BigEndian, ReadBytesExt};
-use concat_reader::{concat_path, FileConcatRead};
+use reader::PartReader;
 use std::env;
 use std::io::Read;
 use std::path::Path;
 use std::process;
 
-fn open(path: String) -> impl FileConcatRead {
+fn open(path: String) -> PartReader {
     let mut paths = vec![path.clone()];
     let path = Path::new(&path);
 
@@ -25,7 +27,7 @@ fn open(path: String) -> impl FileConcatRead {
         }
     }
 
-    concat_path(paths)
+    PartReader::new(paths)
 }
 
 fn main() {
