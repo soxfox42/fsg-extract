@@ -1,29 +1,31 @@
-mod reader;
-
 use byteorder::{BigEndian, ReadBytesExt};
-use reader::FsgReader;
+use concat_reader::{concat_path, FileConcatRead};
 use std::env;
-use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use std::process;
 
-fn open(path: &Path) -> FsgReader {
-    let mut reader = FsgReader::new(File::open(path).unwrap());
+fn open(path: String) -> impl FileConcatRead {
+    let mut paths = vec![path.clone()];
+    let path = Path::new(&path);
+
+    if !path.is_file() {
+        eprintln!("File not found: {}", path.display());
+        process::exit(1);
+    }
 
     if path.extension().map(|s| s == "part0").unwrap_or(false) {
         let stem = path.file_stem().unwrap();
         for i in 1u8.. {
-            let path = format!("{}.part{}", stem.to_str().unwrap(), i);
-            let path = Path::new(&path);
-            if !path.is_file() {
+            let part_path = format!("{}.part{}", stem.to_str().unwrap(), i);
+            if !Path::new(&part_path).is_file() {
                 break;
             }
-            reader.add(File::open(path).unwrap());
+            paths.push(part_path);
         }
     }
 
-    reader
+    concat_path(paths)
 }
 
 fn main() {
@@ -33,13 +35,6 @@ fn main() {
     }
 
     let path = env::args().nth(1).unwrap();
-    let path = Path::new(&path);
-
-    if !path.is_file() {
-        eprintln!("File not found: {}", path.display());
-        process::exit(1);
-    }
-
     let mut reader = open(path);
 
     let mut header = [0; 16];
@@ -52,21 +47,16 @@ fn main() {
 
     reader.read_u32::<BigEndian>().unwrap(); // Unknown
     reader.read_u32::<BigEndian>().unwrap(); // Header Length
-    
     let num_sectors = reader.read_u32::<BigEndian>().unwrap();
     println!("Num sectors: {}", num_sectors);
-    
     reader.read_u32::<BigEndian>().unwrap(); // Sector Map Offset
-    
     let base_offset = reader.read_u32::<BigEndian>().unwrap();
     println!("Base offset: {}", base_offset);
 
     reader.read_u32::<BigEndian>().unwrap(); // Unknown
     reader.read_u32::<BigEndian>().unwrap(); // Unknown
-    
     let num_files = reader.read_u32::<BigEndian>().unwrap();
     println!("Number of files: {}", num_files);
-    
     reader.read_u32::<BigEndian>().unwrap(); // Unknown
     reader.read_u32::<BigEndian>().unwrap(); // Checksum
 }
