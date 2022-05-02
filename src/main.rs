@@ -4,6 +4,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use reader::PartReader;
 use std::collections::HashMap;
 use std::env;
+use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::process;
@@ -56,7 +57,12 @@ fn extend_path(path: &str, filename: &str) -> String {
     }
 }
 
-fn process_files(reader: &mut PartReader, path: &str, offset: u32, nodes: &HashMap<u32, FileNode>) {
+fn read_directory(
+    reader: &mut PartReader,
+    path: &str,
+    offset: u32,
+    nodes: &HashMap<u32, FileNode>,
+) {
     reader.seek(SeekFrom::Start(offset as u64)).unwrap();
     let mut filenames = Vec::new();
     loop {
@@ -77,9 +83,13 @@ fn process_files(reader: &mut PartReader, path: &str, offset: u32, nodes: &HashM
         let path = extend_path(path, &filename);
         if let Some(node) = nodes.get(&hash(&path)) {
             if filename.starts_with('D') {
-                process_files(reader, &path, node.offset, nodes);
+                read_directory(reader, &path, node.offset, nodes);
             } else {
-                println!("{}", path);
+                reader.seek(SeekFrom::Start(node.offset as u64)).unwrap();
+                let out_path = Path::new("out").join(path);
+                std::fs::create_dir_all(out_path.parent().unwrap()).unwrap();
+                let mut file = File::create(out_path).unwrap();
+                std::io::copy(&mut reader.take(node.size as u64), &mut file).unwrap();
             }
         }
     }
@@ -131,8 +141,8 @@ fn main() {
         let offset = reader.read_u32::<BigEndian>().unwrap();
         let offset = base_offset + (offset << 10);
         let size = reader.read_u32::<BigEndian>().unwrap();
-        file_nodes.insert(file_hash, FileNode {offset, size});
+        file_nodes.insert(file_hash, FileNode { offset, size });
     }
 
-    process_files(&mut reader, "", base_offset, &file_nodes);
+    read_directory(&mut reader, "", base_offset, &file_nodes);
 }
