@@ -8,7 +8,6 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::process;
 
-#[derive(Debug)]
 struct FileNode {
     offset: u32,
     size: u32,
@@ -37,6 +36,55 @@ fn open(path: String) -> PartReader {
     PartReader::new(paths)
 }
 
+fn hash(data: &str) -> u32 {
+    let data = data.to_uppercase();
+    let mut hash: u32 = 2166136261;
+
+    for &byte in data.as_bytes() {
+        hash = hash.overflowing_mul(1677619).0;
+        hash ^= byte as u32;
+    }
+
+    hash
+}
+
+fn extend_path(path: &str, filename: &str) -> String {
+    if path == "" {
+        filename[1..].into()
+    } else {
+        format!("{}/{}", path, &filename[1..])
+    }
+}
+
+fn process_files(reader: &mut PartReader, path: &str, offset: u32, nodes: &HashMap<u32, FileNode>) {
+    reader.seek(SeekFrom::Start(offset as u64)).unwrap();
+    let mut filenames = Vec::new();
+    loop {
+        let mut next_name = String::new();
+        while let Ok(byte) = reader.read_u8() {
+            if byte == 0 {
+                break;
+            }
+            next_name.push(byte as char);
+        }
+        if next_name == "" {
+            break;
+        } else {
+            filenames.push(next_name);
+        }
+    }
+    for filename in filenames {
+        let path = extend_path(path, &filename);
+        if let Some(node) = nodes.get(&hash(&path)) {
+            if filename.starts_with('D') {
+                process_files(reader, &path, node.offset, nodes);
+            } else {
+                println!("{}", path);
+            }
+        }
+    }
+}
+
 fn main() {
     if env::args().len() != 2 {
         eprintln!("Usage: fsg-extract <file>");
@@ -60,13 +108,11 @@ fn main() {
     reader.read_u32::<BigEndian>().unwrap(); // Sector Map Offset
 
     let base_offset = reader.read_u32::<BigEndian>().unwrap();
-    println!("Base offset: 0x{:08x}", base_offset);
 
     reader.read_u32::<BigEndian>().unwrap(); // Unknown
     reader.read_u32::<BigEndian>().unwrap(); // Unknown
 
     let num_files = reader.read_u32::<BigEndian>().unwrap();
-    println!("Number of files: {}", num_files);
 
     reader.read_u32::<BigEndian>().unwrap(); // Unknown
     reader.read_u32::<BigEndian>().unwrap(); // Checksum
@@ -88,6 +134,5 @@ fn main() {
         file_nodes.insert(file_hash, FileNode {offset, size});
     }
 
-    let (hash, node) = file_nodes.iter().next().unwrap();
-    println!("0x{:08x}: {:?}", hash, node);
+    process_files(&mut reader, "", base_offset, &file_nodes);
 }
