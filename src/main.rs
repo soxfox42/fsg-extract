@@ -66,7 +66,9 @@ fn read_directory(
     progress: &ProgressBar,
 ) -> std::io::Result<()> {
     progress.inc(1);
+
     reader.seek(SeekFrom::Start(offset as u64))?;
+
     let mut filenames = Vec::new();
     loop {
         let mut next_name = String::new();
@@ -82,6 +84,7 @@ fn read_directory(
             filenames.push(next_name);
         }
     }
+
     for filename in filenames {
         let path = extend_path(path, &filename);
         if let Some(node) = nodes.get(&hash(&path)) {
@@ -89,10 +92,12 @@ fn read_directory(
                 read_directory(reader, &path, node.offset, nodes, progress)?;
             } else {
                 progress.inc(1);
-                reader.seek(SeekFrom::Start(node.offset as u64))?;
+
                 let out_path = Path::new("out").join(path);
                 std::fs::create_dir_all(out_path.parent().unwrap())?;
                 let mut file = File::create(out_path)?;
+
+                reader.seek(SeekFrom::Start(node.offset as u64))?;
                 std::io::copy(&mut reader.take(node.size as u64), &mut file)?;
             }
         }
