@@ -64,9 +64,9 @@ fn read_directory(
     offset: u32,
     nodes: &HashMap<u32, FileNode>,
     progress: &ProgressBar,
-) {
+) -> std::io::Result<()> {
     progress.inc(1);
-    reader.seek(SeekFrom::Start(offset as u64)).unwrap();
+    reader.seek(SeekFrom::Start(offset as u64))?;
     let mut filenames = Vec::new();
     loop {
         let mut next_name = String::new();
@@ -86,17 +86,19 @@ fn read_directory(
         let path = extend_path(path, &filename);
         if let Some(node) = nodes.get(&hash(&path)) {
             if filename.starts_with('D') {
-                read_directory(reader, &path, node.offset, nodes, progress);
+                read_directory(reader, &path, node.offset, nodes, progress)?;
             } else {
                 progress.inc(1);
-                reader.seek(SeekFrom::Start(node.offset as u64)).unwrap();
+                reader.seek(SeekFrom::Start(node.offset as u64))?;
                 let out_path = Path::new("out").join(path);
-                std::fs::create_dir_all(out_path.parent().unwrap()).unwrap();
-                let mut file = File::create(out_path).unwrap();
-                std::io::copy(&mut reader.take(node.size as u64), &mut file).unwrap();
+                std::fs::create_dir_all(out_path.parent().unwrap())?;
+                let mut file = File::create(out_path)?;
+                std::io::copy(&mut reader.take(node.size as u64), &mut file)?;
             }
         }
     }
+
+    Ok(())
 }
 
 fn main() {
@@ -150,5 +152,8 @@ fn main() {
 
     println!("Extracting {} files", num_files);
     let progress = ProgressBar::new(num_files as u64);
-    read_directory(&mut reader, "", base_offset, &file_nodes, &progress);
+    if let Err(e) = read_directory(&mut reader, "", base_offset, &file_nodes, &progress) {
+        eprintln!("Unexpected extraction error: {}", e);
+        process::exit(1);
+    }
 }
