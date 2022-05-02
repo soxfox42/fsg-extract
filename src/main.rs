@@ -1,6 +1,7 @@
 mod reader;
 
 use byteorder::{BigEndian, ReadBytesExt};
+use indicatif::ProgressBar;
 use reader::PartReader;
 use std::collections::HashMap;
 use std::env;
@@ -62,7 +63,9 @@ fn read_directory(
     path: &str,
     offset: u32,
     nodes: &HashMap<u32, FileNode>,
+    progress: &ProgressBar,
 ) {
+    progress.inc(1);
     reader.seek(SeekFrom::Start(offset as u64)).unwrap();
     let mut filenames = Vec::new();
     loop {
@@ -83,8 +86,9 @@ fn read_directory(
         let path = extend_path(path, &filename);
         if let Some(node) = nodes.get(&hash(&path)) {
             if filename.starts_with('D') {
-                read_directory(reader, &path, node.offset, nodes);
+                read_directory(reader, &path, node.offset, nodes, progress);
             } else {
+                progress.inc(1);
                 reader.seek(SeekFrom::Start(node.offset as u64)).unwrap();
                 let out_path = Path::new("out").join(path);
                 std::fs::create_dir_all(out_path.parent().unwrap()).unwrap();
@@ -144,5 +148,7 @@ fn main() {
         file_nodes.insert(file_hash, FileNode { offset, size });
     }
 
-    read_directory(&mut reader, "", base_offset, &file_nodes);
+    println!("Extracting {} files", num_files);
+    let progress = ProgressBar::new(num_files as u64);
+    read_directory(&mut reader, "", base_offset, &file_nodes, &progress);
 }
